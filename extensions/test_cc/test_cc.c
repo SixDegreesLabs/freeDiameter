@@ -32,6 +32,8 @@
 /* This extension simply receives CCR and sends CCA after displaying the content, but does not store any data */
 
 #include <freeDiameter/extension.h>
+#include <sqlite3.h>
+
 
 struct disp_hdl *ccr_handler_hdl;
 
@@ -46,6 +48,56 @@ struct statistics {
         time_t first;
         time_t last;
 } statistics;
+
+sqlite3 *db;
+
+/**
+ * Check if an MSISDN is in the blacklist.
+ * Returns true or false
+ */
+_Bool lookup_blacklist(sqlite3* db, char *msisdn)
+{
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, "SELECT count(*)"
+                                    " FROM blacklist"
+                                    " WHERE msisdn = ?", -1, &stmt, NULL);
+    if (rc != SQLITE_OK) {
+        fd_log_error("preparing database query: %s", sqlite3_errmsg(db));
+	    return 0;
+    }
+
+    rc = sqlite3_bind_text(stmt, 1, msisdn, strlen(msisdn), NULL);
+    if (rc != SQLITE_OK) {                 
+        fd_log_error("binding database query: %s", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);            
+        return 0;                      
+    }
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
+        fd_log_error("binding database query: %s", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);            
+        return 0;                      
+    }
+    /*if (rc == SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        throw string("customer not found");
+    }*/
+
+    _Bool blacklisted = sqlite3_column_int(stmt, 0);
+
+    sqlite3_finalize(stmt);
+
+    return blacklisted;
+}
+
+static int callback(void *NotUsed, int argc, char **argv, char **azColName){
+	int i;
+	for(i=0; i<argc; i++){
+		fd_log_error("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+	}
+	return 0;
+}
 
 void print_statistics(void) {
         if (statistics.first == 0 || statistics.last == 0 || statistics.last == statistics.first) {
@@ -77,6 +129,7 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 		struct avp *avp_data;
 		struct avp_hdr *ahdr;
 		uint32_t crt, crn;
+    char *response_code = "SUCCESS";
 
 		/* get some necessary information from request */
 		if (fd_msg_search_avp(*msg, crt_avp_do, &avp_data) < 0 || avp_data == NULL) {
@@ -93,7 +146,7 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 			return 0;
 		}
 		if (fd_msg_avp_hdr(avp_data, &ahdr) < 0) {
-			fd_log_error("[%s] error parsing CC-Request-Type in CCR", MODULE_NAME);
+			fd_log_error("[%s] error parsing CC-Request-Number in CCR", MODULE_NAME);
 			return 0;
 		}
 		crn = ahdr->avp_value->i32;
@@ -138,7 +191,17 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 		fd_msg_avp_add(answer, MSG_BRW_LAST_CHILD, avp);
 
 		/* TODO make result configurable (depending on an AVP?) */
-		CHECK_FCT(fd_msg_rescode_set(answer, "DIAMETER_SUCCESS", NULL, NULL, 1));
+		//CHECK_FCT(fd_msg_rescode_set(answer, "DIAMETER_SUCCESS", NULL, NULL, 1));
+
+		char *msisdn = "447956432990";
+		_Bool blacklisted = lookup_blacklist(db, msisdn);
+		fd_log(FD_LOG_INFO, "msisdn %s is blacklisted? %s", msisdn, blacklisted);
+		if (blacklisted) {
+			response_code = "TRANSIENT_FAILURE";
+		} else {
+				response_code = "SUCCESS";
+		}
+		CHECK_FCT(fd_msg_rescode_set(answer, response_code, NULL, NULL, 1));
 
 		fd_log_debug("--------------Received the following Credit Control Request:--------------");
 
@@ -192,6 +255,23 @@ static int cc_entry(char * conffile)
         CHECK_FCT( fd_dict_search( fd_g_config->cnf_dict, DICT_COMMAND, CMD_BY_NAME, "Credit-Control-Request", &data.command, ENOENT) );
         CHECK_FCT( fd_disp_register( ccr_handler, DISP_HOW_CC, &data, NULL, &ccr_handler_hdl ) );
 
+	char *dbfile = "/tmp/rvs.db";
+	char *zErrMsg = 0;
+	int rc = sqlite3_open(dbfile, &db);
+	if( rc ){
+		fd_log_error("Can't open database: %s\n", sqlite3_errmsg(db));
+		sqlite3_close(db);
+		return(1);
+	}
+	fd_log_error("Database opened: %s\n", dbfile);
+
+	char *sqlstmt = "create table if not exists blacklist (msisdn String primary key, created timestamp default current_timestamp);";
+	rc = sqlite3_exec(db, sqlstmt, callback, 0, &zErrMsg);
+	if( rc!=SQLITE_OK ){
+		fd_log_error("SQL error: %s\n", zErrMsg);
+		sqlite3_free(zErrMsg);
+	}
+
 	return 0;
 }
 
@@ -205,6 +285,7 @@ void fd_ext_fini(void)
         }
 
 	print_statistics();
+	sqlite3_close(db);
 
         return;
 }
