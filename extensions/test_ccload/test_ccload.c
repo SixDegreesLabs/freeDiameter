@@ -60,6 +60,7 @@ struct dict_object * si_avp_do; /* cache the Session-Id dictionary object */
 struct dict_object * pi_avp_do; /* cache the Proxy-Info dictionary object */
 struct dict_object * ph_avp_do; /* cache the Proxy-Host dictionary object */
 struct dict_object * ps_avp_do; /* cache the Proxy-State dictionary object */
+struct dict_object * ra_avp_do; /* cache the Requested-Action dictionary object */
 
 struct dict_object * ccr_do; /* cache the Credit-Control-Request command dictionary object */
 
@@ -175,7 +176,7 @@ struct msg *create_message(const char *destination)
 	struct msg_hdr *msg_hdr;
 	const char *realm;
 	char session_id[800];
-	const char *service_context_id = "version2.clci.ipc@vodafone.com";
+	const char *service_context_id = "voice@huawei.com";
 	const char *proxy_host = "Dummy-Proxy-Host-to-Increase-Package-Size";
 	const char *proxy_state = "This is just data to increase the package size\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 
@@ -272,7 +273,7 @@ struct msg *create_message(const char *destination)
 	/* CC-Request-Type */
 	fd_msg_avp_new(crt_avp_do, 0, &avp);
 	memset(&val, 0, sizeof(val));
-	val.i32 = 1; /* Initial */
+	val.i32 = 4; /* event_request */
 	if (fd_msg_avp_setvalue(avp, &val) != 0) {
 		fd_msg_free(msg);
 		fd_log_error("can't set value for 'CC-Request-Type' for 'Credit-Control-Request' message");
@@ -315,6 +316,17 @@ struct msg *create_message(const char *destination)
 		return NULL;
 	}
 	fd_msg_avp_add(avp, MSG_BRW_LAST_CHILD, avp1);
+	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
+
+	/* Requested-Action */
+	fd_msg_avp_new(ra_avp_do, 0, &avp);
+	memset(&val, 0, sizeof(val));
+	val.i32 = 0; /* direct_debiting */
+	if (fd_msg_avp_setvalue(avp, &val) != 0) {
+		fd_msg_free(msg);
+		fd_log_error("can't set value for 'Requested-Action' for 'Credit-Control-Request' message");
+		return NULL;
+	}
 	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
 
 	return msg;
@@ -410,6 +422,9 @@ static int cc_entry(char * conffile)
 		     { LOG_E("Unable to find 'Proxy-State' AVP in the loaded dictionaries."); });
 	CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_COMMAND, CMD_BY_NAME, "Credit-Control-Request", &ccr_do, ENOENT),
 		     { LOG_E("Unable to find 'Credit-Control-Request' command in the loaded dictionaries."); });
+
+	CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Requested-Action", &ra_avp_do, ENOENT),
+		     { LOG_E("Unable to find 'Requested-Action' AVP in the loaded dictionaries."); });
 
 	/* Start the generator thread */
 	CHECK_POSIX( pthread_create( &gen_thr, NULL, gen_thr_fct, NULL ) );
