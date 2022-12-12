@@ -1854,6 +1854,8 @@ Note that currently, rfc3588bis-26 has some different values for some of these
 #define ER_DIAMETER_SUCCESS				2001
 #define ER_DIAMETER_LIMITED_SUCCESS			2002
 
+#define ER_SUCCESS					2999 /* SIXD */
+
 #define ER_DIAMETER_COMMAND_UNSUPPORTED			3001 /* 5019 ? */
 #define ER_DIAMETER_UNABLE_TO_DELIVER			3002
 #define ER_DIAMETER_REALM_NOT_SERVED			3003
@@ -1868,6 +1870,9 @@ Note that currently, rfc3588bis-26 has some different values for some of these
 #define ER_DIAMETER_AUTHENTICATION_REJECTED		4001
 #define ER_DIAMETER_OUT_OF_SPACE			4002
 #define ER_ELECTION_LOST				4003
+
+#define ER_PLAY_ANNOUNCEMENT                            4801 /* SIXD */
+#define ER_TRANSIENT_FAILURE                            4998 /* SIXD */
 
 #define ER_DIAMETER_AVP_UNSUPPORTED			5001
 #define ER_DIAMETER_UNKNOWN_SESSION_ID			5002

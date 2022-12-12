@@ -1157,6 +1157,16 @@ int fd_dict_base_protocol(struct dictionary * dict)
 					struct dict_enumval_data 	error_code = { "DIAMETER_LIMITED_SUCCESS", 	{ .u32 = ER_DIAMETER_LIMITED_SUCCESS }};
 					CHECK_dict_new( DICT_ENUMVAL, &error_code , type, NULL);
 				}
+				/* 2999 */
+				{
+					/*
+						When returned, the request was successfully completed, but
+						additional processing is required by the application in order to
+						provide service to the user.
+					*/
+					struct dict_enumval_data 	error_code = { "SUCCESS", 	{ .u32 = ER_SUCCESS }};
+					CHECK_dict_new( DICT_ENUMVAL, &error_code , type, NULL);
+				}
 			}
 			/* Protocol Errors */
 			{
@@ -1289,6 +1299,24 @@ int fd_dict_base_protocol(struct dictionary * dict)
 						has therefore disconnected the transport connection.
 					*/
 					struct dict_enumval_data 	error_code = { "ELECTION_LOST", 			{ .u32 = ER_ELECTION_LOST }};
+					CHECK_dict_new( DICT_ENUMVAL, &error_code , type, NULL);
+				}
+				/* 4801 */
+				{
+					/*
+						The peer has determined that it has lost the election process and
+						has therefore disconnected the transport connection.
+					*/
+					struct dict_enumval_data 	error_code = { "PLAY_ANNOUNCEMENT", 			{ .u32 = ER_PLAY_ANNOUNCEMENT }};
+					CHECK_dict_new( DICT_ENUMVAL, &error_code , type, NULL);
+				}
+				/* 4998 */
+				{
+					/*
+						The peer has determined that it has lost the election process and
+						has therefore disconnected the transport connection.
+					*/
+					struct dict_enumval_data 	error_code = { "TRANSIENT_FAILURE", 			{ .u32 = ER_TRANSIENT_FAILURE }};
 					CHECK_dict_new( DICT_ENUMVAL, &error_code , type, NULL);
 				}
 			}
