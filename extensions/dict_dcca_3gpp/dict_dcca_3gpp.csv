@@ -2419,3 +2419,9 @@ Total-Number-Of-Messages-Sent,2114,8.4,Unsigned32,"M,V",,,
 # Change-1.4.0: 3GPP2-BSID (9010) type changed from OctetString to UTF8String.,,,,,,,
 # Change-1.4.0: 3GPP2-BSID (9010) flag M MUST.,,,,,,,
 3GPP2-BSID,9010,5.6.2.1.1,UTF8String,"M,V",P,,
+#
+# Latro Versablocker for Lebara
+@vendor,2011,,,,,,
+IN-Information,20300,,Grouped,"V,M",,,
+Called-Party-Address,20337,,UTF8String,"V,M",,,
+Calling-Party-Address,20336,,UTF8String,"V,M",,,

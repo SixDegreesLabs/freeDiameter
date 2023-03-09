@@ -161,6 +161,10 @@ static int dict_dcca_3gpp_entry(char * conffile)
                         struct dict_vendor_data vendor_data = { 5535, "3GPP2" };
                         CHECK_FCT(fd_dict_new(fd_g_config->cnf_dict, DICT_VENDOR, &vendor_data, NULL, NULL));
                 }
+                {
+                        struct dict_vendor_data vendor_data = { 2011, "HUAWEI" };
+                        CHECK_FCT(fd_dict_new(fd_g_config->cnf_dict, DICT_VENDOR, &vendor_data, NULL, NULL));
+                }
 
 	}
 	

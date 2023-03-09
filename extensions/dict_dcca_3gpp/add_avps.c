@@ -21450,5 +21450,46 @@ int add_avps()
 		CHECK_dict_new(DICT_AVP, &data, UTF8String_type, NULL);
 	};
 
+
+	/* Latro Versablocker for Lebara                                    */
+	/* IN-Information, Grouped, code 20300                              */
+	{
+		struct dict_avp_data data = {
+			20300,	/* Code */
+			2011,	/* Vendor */
+			"IN-Information",	/* Name */
+			AVP_FLAG_VENDOR |AVP_FLAG_MANDATORY,	/* Fixed flags */
+			AVP_FLAG_VENDOR |AVP_FLAG_MANDATORY,	/* Fixed flag values */
+			AVP_TYPE_GROUPED	/* base type of data */
+		};
+		CHECK_dict_new(DICT_AVP, &data, NULL, NULL);
+	};
+
+	/* Called-Party-Address, UTF8String, code 20337                     */
+	{
+		struct dict_avp_data data = {
+			20337,	/* Code */
+			2011,	/* Vendor */
+			"Called-Party-Address",	/* Name */
+			AVP_FLAG_VENDOR |AVP_FLAG_MANDATORY,	/* Fixed flags */
+			AVP_FLAG_VENDOR |AVP_FLAG_MANDATORY,	/* Fixed flag values */
+			AVP_TYPE_OCTETSTRING	/* base type of data */
+		};
+		CHECK_dict_new(DICT_AVP, &data, UTF8String_type, NULL);
+	};
+
+	/* Calling-Party-Address, UTF8String, code 20336                    */
+	{
+		struct dict_avp_data data = {
+			20336,	/* Code */
+			2011,	/* Vendor */
+			"Calling-Party-Address",	/* Name */
+			AVP_FLAG_VENDOR |AVP_FLAG_MANDATORY,	/* Fixed flags */
+			AVP_FLAG_VENDOR |AVP_FLAG_MANDATORY,	/* Fixed flag values */
+			AVP_TYPE_OCTETSTRING	/* base type of data */
+		};
+		CHECK_dict_new(DICT_AVP, &data, UTF8String_type, NULL);
+	};
+
 	return 0;
 } /* add_avps() */
