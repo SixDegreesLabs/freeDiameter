@@ -37,6 +37,7 @@
 
 #include <freeDiameter/extension.h>
 
+#include <stdlib.h>
 #include <pthread.h>
 #include <signal.h>
 
@@ -63,6 +64,14 @@ struct dict_object * ps_avp_do; /* cache the Proxy-State dictionary object */
 struct dict_object * ra_avp_do; /* cache the Requested-Action dictionary object */
 
 struct dict_object * ccr_do; /* cache the Credit-Control-Request command dictionary object */
+
+struct dict_object * sub_avp_do; /* cache the Subscription-Id dictionary object */
+struct dict_object * subt_avp_do; /* cache the Subscription-Id-Type dictionary object */
+struct dict_object * subd_avp_do; /* cache the Subscription-Id-Data dictionary object */
+
+struct dict_object * sinfo_avp_do; /* cache the Service-Information dictionary object */
+struct dict_object * ii_avp_do; /* cache the IN-Information dictionary object */
+struct dict_object * cpa_avp_do; /* cache the Calling-Party-Address dictionary object */
 
 struct statistics {
 	uint64_t sent;
@@ -171,14 +180,16 @@ static int ccr_fwd_handler(void *cb_data, struct msg **msg)
 struct msg *create_message(const char *destination)
 {
 	struct msg *msg;
-	struct avp *avp, *avp1;
+	struct avp *avp, *avp1, *avp2;
 	union avp_value val;
 	struct msg_hdr *msg_hdr;
 	const char *realm;
 	char session_id[800];
 	const char *service_context_id = "voice@huawei.com";
-	const char *proxy_host = "Dummy-Proxy-Host-to-Increase-Package-Size";
-	const char *proxy_state = "This is just data to increase the package size\nXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
+	char anum[17];
+	char bnum[17];
+	sprintf(anum, "140182%05d", rand() % 32767);
+	sprintf(bnum, "9665791%05d", rand() % 32767);
 
 	if (fd_msg_new(ccr_do, MSGFL_ALLOC_ETEID, &msg) != 0) {
 		fd_log_error("can't create new 'Credit-Control-Request' message");
@@ -292,9 +303,9 @@ struct msg *create_message(const char *destination)
 	}
 	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
 
-	/* Proxy-Info */
+	/* Proxy-Info *
 	fd_msg_avp_new(pi_avp_do, 0, &avp);
-	/* Proxy-Host */
+	/* Proxy-Host *
 	fd_msg_avp_new(ph_avp_do, 0, &avp1);
 	memset(&val, 0, sizeof(val));
 	val.os.data = (uint8_t *)proxy_host;
@@ -305,7 +316,7 @@ struct msg *create_message(const char *destination)
 		return NULL;
 	}
 	fd_msg_avp_add(avp, MSG_BRW_LAST_CHILD, avp1);
-	/* Proxy-State */
+	/* Proxy-State *
 	fd_msg_avp_new(ps_avp_do, 0, &avp1);
 	memset(&val, 0, sizeof(val));
 	val.os.data = (uint8_t *)proxy_state;
@@ -317,6 +328,7 @@ struct msg *create_message(const char *destination)
 	}
 	fd_msg_avp_add(avp, MSG_BRW_LAST_CHILD, avp1);
 	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
+	*/
 
 	/* Requested-Action */
 	fd_msg_avp_new(ra_avp_do, 0, &avp);
@@ -328,6 +340,59 @@ struct msg *create_message(const char *destination)
 		return NULL;
 	}
 	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
+
+	/* Subscription-Id */
+	fd_msg_avp_new(sub_avp_do, 0, &avp);
+	/* - Subscription-Id-Type */
+	fd_msg_avp_new(subt_avp_do, 0, &avp1);
+	memset(&val, 0, sizeof(val));
+	val.i32 = 0; // END_USER_E164
+        if (fd_msg_avp_setvalue(avp1, &val) != 0) {
+                fd_msg_free(msg);
+                fd_log_error("can't set value for 'Subscription-Id-Type' for 'Credit-Control-Request' message");
+                return NULL;
+        }
+	fd_msg_avp_add(avp, MSG_BRW_LAST_CHILD, avp1);
+	/* - Subscription-Id-Data */
+	fd_msg_avp_new(subd_avp_do, 0, &avp1);
+	memset(&val, 0, sizeof(val));
+	val.os.data = (uint8_t *)bnum;
+        val.os.len = strlen(bnum);
+        if (fd_msg_avp_setvalue(avp1, &val) != 0) {
+                fd_msg_free(msg);
+                fd_log_error("can't set value for 'Subscription-Id-Data' for 'Credit-Control-Request' message");
+                return NULL;
+        }
+	fd_msg_avp_add(avp, MSG_BRW_LAST_CHILD, avp1);
+	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
+
+
+	/* Service-Information */
+	fd_msg_avp_new(sinfo_avp_do, 0, &avp);
+	/* - IN-Information */
+	fd_msg_avp_new(ii_avp_do, 0, &avp1);
+	/* - Calling-Party-Address */
+	fd_msg_avp_new(cpa_avp_do, 0, &avp2);
+	memset(&val, 0, sizeof(val));
+	val.os.data = (uint8_t *)anum;
+        val.os.len = strlen(anum);
+        if (fd_msg_avp_setvalue(avp2, &val) != 0) {
+                fd_msg_free(msg);
+                fd_log_error("can't set value for 'Calling-Party-Address' for 'Credit-Control-Request' message");
+                return NULL;
+        }
+	fd_msg_avp_add(avp1, MSG_BRW_LAST_CHILD, avp2);
+	fd_msg_avp_add(avp, MSG_BRW_LAST_CHILD, avp1);
+	fd_msg_avp_add(msg, MSG_BRW_LAST_CHILD, avp);
+
+	/*
+19:21:15  NOTI           AVP: 'Subscription-Id'(443) l=40 f=-M val=(grouped)
+19:21:15  NOTI              AVP: 'Subscription-Id-Type'(450) l=12 f=-M val='END_USER_E164' (0 (0x0))
+19:21:15  NOTI              AVP: 'Subscription-Id-Data'(444) l=20 f=-M val="966579183132"
+19:21:15  NOTI           AVP: 'Service-Information'(873) vend='3GPP'(10415) l=48 f=V- val=(grouped)
+19:21:15  NOTI              AVP: 'IN-Information'(20300) vend='HUAWEI'(2011) l=36 f=V- val=(grouped)
+19:21:15  NOTI                 AVP: 'Calling-Party-Address'(20336) vend='HUAWEI'(2011) l=23 f=V- val="14018040442"
+	*/
 
 	return msg;
 }
@@ -353,6 +418,7 @@ void * gen_thr_fct(void * arg)
 			}
 			statistics.last = time(NULL);
 			statistics.sent++;
+//			        do_generate = 0;
 		} else {
 			sleep(1);
 		}
@@ -425,6 +491,31 @@ static int cc_entry(char * conffile)
 
 	CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Requested-Action", &ra_avp_do, ENOENT),
 		     { LOG_E("Unable to find 'Requested-Action' AVP in the loaded dictionaries."); });
+
+	CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Subscription-Id", &sub_avp_do, ENOENT),
+		     { LOG_E("Unable to find 'Subscription-Id' AVP in the loaded dictionaries."); });
+	CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Subscription-Id-Type", &subt_avp_do, ENOENT),
+		     { LOG_E("Unable to find 'Subscription-Id-Type' AVP in the loaded dictionaries."); });
+	CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME, "Subscription-Id-Data", &subd_avp_do, ENOENT),
+		     { LOG_E("Unable to find 'Subscription-Id-Data' AVP in the loaded dictionaries."); });
+
+	struct dict_avp_request req;
+        req.avp_vendor = 10415;
+        req.avp_name = "Service-Information";
+        CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_AND_VENDOR, &req, &sinfo_avp_do, ENOENT),
+                     { LOG_E("Unable to find 'Service-Information' AVP in the loaded dictionaries."); });
+
+	memset(&req, 0, sizeof(req));
+        req.avp_vendor = 2011;
+        req.avp_name = "IN-Information";
+        CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_AND_VENDOR, &req, &ii_avp_do, ENOENT),
+                     { LOG_E("Unable to find 'IN-Information' AVP in the loaded dictionaries."); });
+
+	memset(&req, 0, sizeof(req));
+        req.avp_vendor = 2011;
+        req.avp_name = "Calling-Party-Address";
+        CHECK_FCT_DO(fd_dict_search(fd_g_config->cnf_dict, DICT_AVP, AVP_BY_NAME_AND_VENDOR, &req, &cpa_avp_do, ENOENT),
+                     { LOG_E("Unable to find 'Calling-Party-Address' AVP in the loaded dictionaries."); });
 
 	/* Start the generator thread */
 	CHECK_POSIX( pthread_create( &gen_thr, NULL, gen_thr_fct, NULL ) );
