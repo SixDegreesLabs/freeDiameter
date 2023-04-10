@@ -55,53 +55,6 @@ struct statistics {
 natsConnection      *conn = NULL;
 natsMsg             *reply= NULL;
 
-/**
- * Check if an MSISDN is in the blacklist.
- * Returns true or false
- _Bool lookup_blacklist(sqlite3* db, char *msisdn)
- {
- sqlite3_stmt *stmt;
- int rc = sqlite3_prepare_v2(db, "SELECT count(*)"
- " FROM blacklist"
- " WHERE msisdn = ?", -1, &stmt, NULL);
- if (rc != SQLITE_OK) {
- fd_log_error("preparing database query: %s", sqlite3_errmsg(db));
- return 0;
- }
-
- rc = sqlite3_bind_text(stmt, 1, msisdn, strlen(msisdn), NULL);
- if (rc != SQLITE_OK) {                 
- fd_log_error("binding database query: %s", sqlite3_errmsg(db));
- sqlite3_finalize(stmt);            
- return 0;                      
- }
-
- rc = sqlite3_step(stmt);
- if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
- fd_log_error("binding database query: %s", sqlite3_errmsg(db));
- sqlite3_finalize(stmt);            
- return 0;                      
- }
-//if (rc == SQLITE_DONE) {
-//    sqlite3_finalize(stmt);
-//    throw string("customer not found");
-// }
-
-_Bool blacklisted = sqlite3_column_int(stmt, 0);
-
-sqlite3_finalize(stmt);
-
-return blacklisted;
-}
-*/
-
-//static int callback(void *NotUsed, int argc, char **argv, char **azColName){
-//	int i;
-//	for(i=0; i<argc; i++){
-//		fd_log_error("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-//	}
-//	return 0;
-//}
 
 void print_statistics(void) {
 	if (statistics.first == 0 || statistics.last == 0 || statistics.last == statistics.first) {
@@ -287,26 +240,13 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 			printf("Received reply: %.*s\n",
 					natsMsg_GetDataLength(reply),
 					natsMsg_GetData(reply));
-        
+			sprintf(response_code, "%.*s", natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+
 			// Need to destroy the message!
 			natsMsg_Destroy(reply);
 		} else {
 		  fd_log_error("nats status %d", ns);
 		}
-
-		if (strcmp((const char *)callingPartyAddr, "96561084769") == 0) {
-			fd_log(FD_LOG_INFO, "msisdn %s calling %s is Wangiri", callingPartyAddr, calledPartyAddr );
-			response_code = "PLAY_ANNOUNCEMENT";
-
-		} else if (strcmp((const char *)calledPartyAddr, "966579183132") == 0) {
-			fd_log(FD_LOG_INFO, "msisdn %s calling %s is blacklisted", callingPartyAddr, calledPartyAddr );
-			response_code = "TRANSIENT_FAILURE";
-
-		} else {
-			fd_log(FD_LOG_INFO, "msisdn %s calling %s is successful", callingPartyAddr, calledPartyAddr );
-			response_code = "SUCCESS";
-		}
-
 
 		CHECK_FCT(fd_msg_rescode_set(answer, response_code, NULL, NULL, 1));
 
