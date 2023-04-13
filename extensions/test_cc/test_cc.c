@@ -33,6 +33,8 @@
 
 #include <freeDiameter/extension.h>
 #include <nats/nats.h>
+#include <uuid/uuid.h>
+
 
 
 
@@ -53,7 +55,8 @@ struct statistics {
 } statistics;
 
 natsConnection      *conn = NULL;
-natsMsg             *reply= NULL;
+natsStatus          ns;
+const char *request_subj = "diameter";
 
 
 void print_statistics(void) {
@@ -69,6 +72,7 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 {
 	struct msg_hdr *hdr = NULL;
 	time_t now;
+	char payload[80];
 
 	TRACE_ENTRY("%p %p %p %p", msg, avp, sess, act);
 
@@ -78,13 +82,20 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 	CHECK_FCT(fd_msg_hdr(*msg, &hdr));
 	if(hdr->msg_flags & CMD_FLAG_REQUEST) {
 		/* Request received, answer it */
+
+		// assign uuid
+		uuid_t binuuid;
+		uuid_generate_random(binuuid);
+		char *uuid = malloc(UUID_STR_LEN);
+		uuid_unparse_lower(binuuid, uuid);
+
 		struct msg *answer;
 		os0_t s;
 		size_t sl;
 		struct avp *avp;
 		union avp_value val;
-		struct avp *avp_data;
 		struct avp_hdr *ahdr;
+		struct avp *avp_data;
 		uint32_t crt, crn;
 		uint8_t *sid = NULL;
 		uint8_t *callingPartyAddr = NULL;
@@ -116,6 +127,7 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 			fd_log_error("[%s] Subscription-Id not found in CCR", MODULE_NAME);
 			return 0;
 		}
+
 
 		CHECK_FCT(  fd_msg_browse(avp_data, MSG_BRW_FIRST_CHILD, &avp, NULL)  );
 		while (avp) {
@@ -180,6 +192,9 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 			CHECK_FCT(  fd_msg_browse(avp, MSG_BRW_NEXT, &avp, NULL)  );
 		}
 
+		CHECK_FCT(fd_sess_getsid(sess, &s, &sl));
+		fd_log_debug("Session: %.*s",(int)sl, s);
+
 
 		/* Create the answer message */
 		CHECK_FCT(fd_msg_new_answer_from_req(fd_g_config->cnf_dict, msg, 0));
@@ -219,10 +234,7 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 		fd_msg_avp_add(answer, MSG_BRW_LAST_CHILD, avp);
 
 
-		fd_log_debug("--------------Received the following Credit Control Request:--------------");
 
-		CHECK_FCT(fd_sess_getsid(sess, &s, &sl));
-		fd_log_debug("Session: %.*s",(int)sl, s);
 
 		// send String to nats anum,bnum
 		if (callingPartyAddr == NULL) {
@@ -231,28 +243,48 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 			calledPartyAddr = sid;
 		}
 		fd_log_debug("--------------Sending request to NATS:--------------");
-		char req[80];
-		sprintf(req, "%s,%s",callingPartyAddr, calledPartyAddr);
-		natsStatus ns = natsConnection_RequestString(&reply, conn, "diameter", req, 100);
-		if (ns == NATS_OK)
-		{
-			// If we are here, we should have received the reply
-			printf("Received reply: %.*s\n",
-					natsMsg_GetDataLength(reply),
-					natsMsg_GetData(reply));
-			sprintf(response_code, "%.*s", natsMsg_GetDataLength(reply), natsMsg_GetData(reply));
+		sprintf(payload, "%s,%s,%s", uuid, callingPartyAddr, calledPartyAddr);
 
-			// Need to destroy the message!
+		natsMsg *reply= NULL;
+		ns = natsConnection_RequestString(&reply, conn, request_subj, payload, 1000);
+		if (ns == NATS_OK) {
+//			fd_log_error("response from nats: %s", natsMsg_GetData(reply));
+			const char *str = natsMsg_GetData(reply);
+			char *rest = NULL;
+			char *token;
+			int i=0;
+			for (token = strtok_r((char *)str, ",", &rest);
+					token != NULL;
+					token = strtok_r(NULL, ",", &rest)) {
+				if (i==0) NULL;
+				else if (i==1)
+					response_code = strdup(token);
+				else {
+					fd_log_error("invalid response: %a", str);
+				}
+				i++;
+			}
+			//fd_log_error("response from nats: uuid=%s  response_code=%s", uuid, response_code);
 			natsMsg_Destroy(reply);
+
+		} else if (ns == NATS_TIMEOUT) {
+		  fd_log_error("nats timeout");
 		} else {
 		  fd_log_error("nats status %d", ns);
 		}
+
+
+
+
+
+
 
 		CHECK_FCT(fd_msg_rescode_set(answer, response_code, NULL, NULL, 1));
 
 
 		/* Send the answer */
 		CHECK_FCT(fd_msg_send(msg, NULL, NULL));
+
 		now = time(NULL);
 		if (!statistics.first) {
 			statistics.first = now;
@@ -262,12 +294,17 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 		}
 		statistics.last = now;
 		statistics.sent++;
-		fd_log_debug("reply sent");
+
+		//free(response_code);
+		//free(uuid);
+
 	} else {
 		/* We received an answer message, just discard it */
 		CHECK_FCT(fd_msg_free(*msg));
 		*msg = NULL;
 	}
+
+
 
 	return 0;
 }
@@ -276,9 +313,9 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 static int cc_entry(char * conffile)
 {
 	// Creates a connection to the default NATS URL
-	natsStatus s = natsConnection_ConnectTo(&conn, NATS_DEFAULT_URL);
+	ns = natsConnection_ConnectTo(&conn, NATS_DEFAULT_URL);
 	// If there was an error, print a stack trace and exit
-	if (s != NATS_OK)
+	if (ns != NATS_OK)
 	{
 		nats_PrintLastErrorStack(stderr);
 		fd_log_error("Can't open NATS: %s\n", NATS_DEFAULT_URL);
