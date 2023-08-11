@@ -1,0 +1,38 @@
+CANAME=SIXD-RootCA
+openssl genrsa -aes256 -out $CANAME.key 4096
+openssl req -x509 -new -nodes -key $CANAME.key -sha256 -days 1826 -out $CANAME.crt
+# openssl req -x509 -new -nodes -key $CANAME.key -sha256 -days 1826 -out $CANAME.crt -subj '/CN=SIXD-RootCA/C=GB/ST=Surrey/L=Farnham/O=Six Degrees Labs'
+
+
+# diameter-client
+openssl req -new -nodes -out diameter-client.csr -newkey rsa:4096 -keyout diameter-client.key -subj '/CN=diameter-client.localdomain/C=GB/ST=Surrey/L=Farnham/O=Six Degrees Labs'
+
+# diameter backends
+openssl req -new -nodes -out diameter1.csr -newkey rsa:4096 -keyout diameter1.key -subj '/CN=diameter1.localdomain/C=GB/ST=Surrey/L=Farnham/O=Six Degrees Labs'
+openssl req -new -nodes -out diameter2.csr -newkey rsa:4096 -keyout diameter2.key -subj '/CN=diameter2.localdomain/C=GB/ST=Surrey/L=Farnham/O=Six Degrees Labs'
+
+# diameter-proxy1
+openssl req -new -nodes -out diameter-proxy1.csr -newkey rsa:4096 -keyout diameter-proxy1.key -subj '/CN=diameter-proxy1.localdomain/C=GB/ST=Surrey/L=Farnham/O=Six Degrees Labs'
+
+openssl req -new -nodes -out diameter-proxy-lb.csr -newkey rsa:4096 -keyout diameter-proxy-lb.key -subj '/CN=diameter-proxy-lb.localdomain/C=GB/ST=Surrey/L=Farnham/O=Six Degrees Labs'
+
+# sign the certs
+openssl x509 -req -in diameter-client.csr -CA $CANAME.crt -CAkey $CANAME.key -CAcreateserial -out diameter-client.crt -days 730 -sha256
+openssl x509 -req -in diameter1.csr -CA $CANAME.crt -CAkey $CANAME.key -CAcreateserial -out diameter1.crt -days 730 -sha256
+openssl x509 -req -in diameter2.csr -CA $CANAME.crt -CAkey $CANAME.key -CAcreateserial -out diameter2.crt -days 730 -sha256
+openssl x509 -req -in diameter-proxy1.csr -CA $CANAME.crt -CAkey $CANAME.key -CAcreateserial -out diameter-proxy1.crt -days 730 -sha256
+openssl x509 -req -in diameter-proxy-lb.csr -CA $CANAME.crt -CAkey $CANAME.key -CAcreateserial -out diameter-proxy-lb.crt -days 730 -sha256
+
+
+# build notes for Fedora
+yum install git cmake make gcc gcc-c++ flex bison lksctp-tools-devel gnutls-devel libgcrypt-devel libidn2-devel
+yum install keepalived # for proxy servers only
+git clone git@github.com:freeDiameter/freeDiameter.git
+cd freeDiameter
+mkdir build
+cd build
+cmake ../
+make edit_cache
+- set BUILD_TEST_APP=ON, then (c)onfigure, (g)enerate
+make
+make install

@@ -1,0 +1,8 @@
+10.106.0.6 diameter-client.localdomain
+
+10.106.0.2 diameter-proxy1.localdomain
+10.106.0.4 diameter-proxy2.localdomain
+143.198.241.217 diameter-proxy-lb.localdomain
+
+10.106.0.3 diameter1.localdomain
+10.106.0.5 diameter2.localdomain
