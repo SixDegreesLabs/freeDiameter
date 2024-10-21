@@ -296,7 +296,7 @@ static int ccr_handler(struct msg ** msg, struct avp * avp, struct session * ses
 		statistics.sent++;
 
 		//free(response_code);
-		//free(uuid);
+		free(uuid);
 
 	} else {
 		/* We received an answer message, just discard it */
